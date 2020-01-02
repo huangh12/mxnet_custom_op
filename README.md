@@ -35,3 +35,6 @@ It currently includes:
 
    [cuda version](sigmoid_focal_loss_v2-inl.h), which supports dymanic grad scale, i.e., grad_scale is a variable input to the operator instead of a fixed parameter. This op can be used in Cascade RetinaNet.
 
+1. smooth_l1_v2
+   
+   [ndarray version](smooth_l1_v2.py). The difference between the normal smooth_l1 loss is that, its sigma is a variable to pass into the op.
