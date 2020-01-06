@@ -1,6 +1,4 @@
 import mxnet as mx
-import numpy as np
-
 
 class SmoothL1V2Operator(mx.operator.CustomOp):
     def __init__(self):
@@ -42,9 +40,10 @@ class SmoothL1V2Operator(mx.operator.CustomOp):
         out1 = mx.nd.where(case3, value3, out1)
 
         # grad for data
-        self.assign(in_grad[0], req[0], out1*out_grad[0])
+        out1 = out1 * out_grad[0]
+        self.assign(in_grad[0], req[0], out1)
         # grad for sigma (not learn)
-        self.assign(in_grad[1], req[1], 0)
+        self.assign(in_grad[1], req[1], 0.)
 
 @mx.operator.register('smooth_l1_v2')
 class SmoothL1V2Prop(mx.operator.CustomOpProp):
@@ -58,13 +57,12 @@ class SmoothL1V2Prop(mx.operator.CustomOpProp):
         return ['output']
 
     def infer_shape(self, in_shape):
-        return [in_shape[0], in_shape[0]], [in_shape[0]]
+        return in_shape, [in_shape[0]], []
 
     def create_operator(self, ctx, shapes, dtypes):
         return SmoothL1V2Operator()
 
-
-def smooth_l1_v2(data, sigma):
+def smooth_l1_v2_loss(data, sigma):
     return mx.sym.Custom(data=data, sigma=sigma,
                          op_type='smooth_l1_v2')
 

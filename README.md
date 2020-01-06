@@ -38,3 +38,8 @@ It currently includes:
 1. smooth_l1_v2
    
    [ndarray version](smooth_l1_v2.py). The difference between the normal smooth_l1 loss is that, its sigma is a variable to pass into the op.
+
+3. Wing loss
+   
+   [ndarray version](wing_loss.py). A reproduction of [Wing loss](https://arxiv.org/pdf/1711.06753.pdf) from CVPR2018.
+   Wing loss is proposed for facial landmark localisation, but may benefits human keypoints detection as well.
