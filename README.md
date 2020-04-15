@@ -43,3 +43,67 @@ For operators without need of `top_grad` (such as many loss layers), you should 
 4. **Bounding_box op (with legacy_box param)**
 
    [CUDA version](bounding_box_op/bounding_box-inl.h). By default, the bounding_box operator in newest MXNet supposes box width(height) = x2(y2)-x1(y1). However, this assumption is not compatible with previous code. For example, the width of box in PASCAL VOC is usually calculated as x2-x1+1. This is common in many codebase, and could hurt performance(~1 AP in my experiments) due to inconsistency. Therefore, I add the `legacy_box` param in bounding_box op for the backward compatibility.
+
+4. **TopK op (with do_sort param)**
+
+   [CUDA version](topk/ordering_op-inl.h). The influence of `do_sort` param is as below. When `do_sort` is True(by default),
+   it behaves exactly same as the official topk operator in MXNet. 
+   
+   ```Python
+   >>> a
+
+   [[0.08712929 0.6481719  0.0202184  0.36824155 0.83261985]
+   [0.95715517 0.77815676 0.14035077 0.87001216 0.87008727]
+   [0.9786183  0.47360805 0.7991586  0.8009108  0.46147937]]
+   <NDArray 3x5 @cpu(0)>
+   >>> mx.nd.topk(a, k=3, axis=-1, do_sort=1, ret_typ="value")
+
+   [[0.83261985 0.6481719  0.36824155]
+   [0.95715517 0.87008727 0.87001216]
+   [0.9786183  0.8009108  0.7991586 ]]
+   <NDArray 3x3 @cpu(0)>
+   >>> mx.nd.topk(a, k=3, axis=-1, do_sort=0, ret_typ="value")
+
+   [[0.6481719  0.36824155 0.83261985]
+   [0.95715517 0.87001216 0.87008727]
+   [0.9786183  0.7991586  0.8009108 ]]
+   <NDArray 3x3 @cpu(0)>
+
+   ```
+
+   The benefits of having `do_sort` param is that, we can construct a dynamic indexing scheme by using topk op in `do_sort=0` mode. The following example shows dynamically idexing a tensor(a) with another tensor(b), and the output(c) will change along with b. Note this hasn't been supported by official MXNet, but can be implemented with this modified topk operator.
+
+   ```Python
+   def arr_pick(self, F, arr, indicate, num):
+      ## NOTE: below adding 1 is more than necessary!!
+      max_gap_value = F.max(arr) - F.min(arr) + 1  # (1,)
+      max_gap_value = F.reshape(max_gap_value, (1, 1, 1))
+      max_gap_arr = F.broadcast_mul(indicate, max_gap_value)
+      arr = F.broadcast_plus(arr, max_gap_arr)     # (batch_size, mask_dim, h*w*priors)
+      arr = F.topk(arr, k=num, axis=-1, do_sort=0, ret_typ="value")
+      res = F.broadcast_minus(arr, max_gap_value)      # (batch_size, mask_dim, mask_num)
+      return res   
+
+   a = mx.nd.arange(60, ctx=mx.gpu()).reshape((1,6,10))
+   b = mx.nd.array([[[0,1,0,1,0,1,0,1,0,1]]], ctx=mx.gpu())
+   c = arr_pick(mx.nd, a, b, 5)
+   print(a)
+   print(c)
+   
+   # output
+   [[[ 0.  1.  2.  3.  4.  5.  6.  7.  8.  9.]
+   [10. 11. 12. 13. 14. 15. 16. 17. 18. 19.]
+   [20. 21. 22. 23. 24. 25. 26. 27. 28. 29.]
+   [30. 31. 32. 33. 34. 35. 36. 37. 38. 39.]
+   [40. 41. 42. 43. 44. 45. 46. 47. 48. 49.]
+   [50. 51. 52. 53. 54. 55. 56. 57. 58. 59.]]]
+   <NDArray 1x6x10 @gpu(0)>
+
+   [[[ 1.  3.  5.  7.  9.]
+   [11. 13. 15. 17. 19.]
+   [21. 23. 25. 27. 29.]
+   [31. 33. 35. 37. 39.]
+   [41. 43. 45. 47. 49.]
+   [51. 53. 55. 57. 59.]]]
+   <NDArray 1x6x5 @gpu(0)>
+   ```
