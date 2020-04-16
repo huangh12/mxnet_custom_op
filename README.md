@@ -44,7 +44,7 @@ For operators without need of `top_grad` (such as many loss layers), you should 
 
    [CUDA version](bounding_box_op/bounding_box-inl.h). By default, the bounding_box operator in newest MXNet supposes box width(height) = x2(y2)-x1(y1). However, this assumption is not compatible with previous code. For example, the width of box in PASCAL VOC is usually calculated as x2-x1+1. This is common in many codebase, and could hurt performance(~1 AP in my experiments) due to inconsistency. Therefore, I add the `legacy_box` param in bounding_box op for the backward compatibility.
 
-4. **TopK op (with do_sort param)**
+5. **TopK op (with do_sort param)**
 
    [CUDA version](topk/ordering_op-inl.h). The influence of `do_sort` param is as below. When `do_sort` is True(by default),
    it behaves exactly same as the official topk operator in MXNet. 
@@ -107,3 +107,8 @@ For operators without need of `top_grad` (such as many loss layers), you should 
    [51. 53. 55. 57. 59.]]]
    <NDArray 1x6x5 @gpu(0)>
    ```
+
+6. **OHEM Sampler**
+
+   [Python version](ohem_sampler/ohem_sampler.py). OHEM sampler is for online hard example mining. See this [paper](https://arxiv.org/abs/1604.03540) for detailed introduction.
+   In my implementation, it's realized by adjusting the sample weight before the loss layer, i.e., setting the hard(easy) sample weight to 1(0). Therefore, the inputs to this operator are `conf_data`, `conf_target`, `conf_weight`, and the output is the `new_conf_weight`.
