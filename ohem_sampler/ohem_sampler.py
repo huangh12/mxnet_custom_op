@@ -27,19 +27,22 @@ class OHEMSamplerOperator(mx.operator.CustomOp):
         bg_prob = conf_d[:,:,0]   # (B, N)
         bg_prob[conf_t != 0] = 1.0  # set non-bg prob to 1
         neg_nums = self.neg_ratio * np.sum(conf_t > 0, axis=-1)  # (B,)
-        neg_nums = np.ceil(neg_nums)
+        neg_nums = np.ceil(neg_nums).astype(np.int32)
 
         if self.batch_ohem:
             neg_nums = np.sum(neg_nums).astype(np.int32)     # (1,)
-            bgsort_idx = np.argsort(bg_prob.flatten(), axis=-1)
-            conf_w = conf_w.flatten()
-            conf_w[bgsort_idx[:neg_nums]] = 1
-            conf_w = conf_w.reshape((conf_d.shape[0], -1, 1))
+            bg_idx = conf_t.flatten() == 0
+            bg_prob_f = bg_prob.flatten()
+            bgsort_idx = np.argsort(bg_prob_f[bg_idx], axis=-1)
+            conf_w_f = conf_w.flatten()
+            conf_w_f[bg_idx][bgsort_idx[:neg_nums]] = 1
+            conf_w = conf_w_f.reshape((conf_d.shape[0], -1, 1))
         else:
-            bgsort_idx = np.argsort(bg_prob, axis=-1)
             for batch_id in range(bg_prob.shape[0]):
-                pick_idx = bgsort_idx[batch_id][:neg_nums[batch_id]]
-                conf_w[batch_id][pick_idx] = 1
+                bg_idx = conf_t[batch_id].flatten() == 0
+                bgsort_idx = np.argsort(bg_prob[batch_id][bg_idx], axis=-1)
+                pick_idx = bgsort_idx[:neg_nums[batch_id]]
+                conf_w[batch_id][bg_idx][pick_idx] = 1
 
         self.assign(out_data[0], req[0], conf_w)
 
